@@ -1,7 +1,14 @@
-print "hello"
-def func(x):
-	return x*x
-as=func(3)
-print as
+import maya.api.OpenMaya as om2
+
+##get the full dagpath for all selected object.
+# use partialPathName if u just want the name of the selection
+
+dagPathEle = []
+selList = om2.MGlobal.getActiveSelectionList()
+for i in range(selList.length()):
+	dagPath = selList.getDagPath(i)
+	dagPathEle.append(dagPath.fullPathName())
+
+print dagPathEle
 
 
