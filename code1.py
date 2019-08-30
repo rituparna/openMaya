@@ -7,7 +7,7 @@ dagPathEle = []
 selList = om2.MGlobal.getActiveSelectionList()
 for i in range(selList.length()):
 	dagPath = selList.getDagPath(i)
-	dagPathEle.append(dagPath.partialPathName())
+	dagPathEle.append(dagPath.fullPathName())
 
 print dagPathEle
 
