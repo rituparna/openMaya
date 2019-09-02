@@ -18,6 +18,7 @@ def createEmptyNodes(prefixB='', number=4):
 
 
 ##DGModifier connect
+#transformUtils.connectNodes('pCube1','pSphere1','translateX','translateZ')
 def getmObject(obj1):
     selectList=om2.MSelectionList()
     selectList.add(obj1)
@@ -31,11 +32,11 @@ def getPlugByName(mObject,plugName):
         return plugNode
     except:
         return None
-def connectNodes():
-    sourceNode=getmObject('pCube1')
-    plugNameSrc=getPlugByName(sourceNode,'translateY')
-    targetNode=getmObject('pSphere1')
-    plugNameTgt=getPlugByName(targetNode,'translateZ')
+def connectNodes(obj1,obj2,attr1,attr2):
+    sourceNode=getmObject(obj1)
+    plugNameSrc=getPlugByName(sourceNode,attr1)
+    targetNode=getmObject(obj2)
+    plugNameTgt=getPlugByName(targetNode,attr2)
     mDGNode=om2.MDGModifier()
     mDGNode.connect(plugNameSrc,plugNameTgt)
     mDGNode.doIt()
