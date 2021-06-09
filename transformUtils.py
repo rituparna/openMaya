@@ -41,5 +41,24 @@ def connectNodes(obj1,obj2,attr1,attr2):
     mDGNode.connect(plugNameSrc,plugNameTgt)
     mDGNode.doIt()
 
+def get_worldMatrixData_inverse(obj):
+    # get world matrix data and inverse position
+    default_obj = om2.MGlobal.getSelectionListByName(obj)
+    default_node = default_obj.getDependNode(0)
+    depend_node = om2.MFnDependencyNode(default_node)
+
+    mat_plug = om2.MPlug(depend_node.findPlug('worldMatrix', 0))
+
+    mat_plug = mat_plug.elementByLogicalIndex(0)
+    mat_plug = mat_plug.asMObject()
+
+    matData = om2.MFnMatrixData(mat_plug).matrix()
+    new_data = matData.inverse()
+
+    trans_matrix = om2.MTransformationMatrix(new_data)
+    new_trans = trans_matrix.translation(om2.MSpace.kWorld)
+    trans_node = om2.MFnTransform(default_node)
+    trans_node.setTranslation(new_trans, om2.MSpace.kTransform)
+
 
 
