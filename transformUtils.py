@@ -1,5 +1,7 @@
 import maya.cmds as cmds
-import maya.api.OpenMaya as om2
+import maya.api.om2 as om2
+import sys
+import math
 
 ##creating empty dag nodes
 #test = createEmptyNodes('test', 8)
@@ -19,11 +21,16 @@ def createEmptyNodes(prefixB='', number=4):
 
 ##DGModifier connect
 #transformUtils.connectNodes('pCube1','pSphere1','translateX','translateZ')
-def getmObject(obj1):
-    selectList=om2.MSelectionList()
-    selectList.add(obj1)
-    mObject=selectList.getDependNode(0)
-    return mObject
+def getMDagPath(node):
+    selList = om2.MSelectionList()
+    selList.add(node)
+    return selList.getDagPath(0)
+
+
+def getMObject(node):
+    selList = om2.MSelectionList()
+    selList.add(node)
+    return selList.getDependNode(0)
 
 def getPlugByName(mObject,plugName):
     dependNode = om2.MFnDependencyNode(mObject)
@@ -33,9 +40,9 @@ def getPlugByName(mObject,plugName):
     except:
         return None
 def connectNodes(obj1,obj2,attr1,attr2):
-    sourceNode=getmObject(obj1)
+    sourceNode=getMObject(obj1)
     plugNameSrc=getPlugByName(sourceNode,attr1)
-    targetNode=getmObject(obj2)
+    targetNode=getMObject(obj2)
     plugNameTgt=getPlugByName(targetNode,attr2)
     mDGNode=om2.MDGModifier()
     mDGNode.connect(plugNameSrc,plugNameTgt)
@@ -59,6 +66,103 @@ def get_worldMatrixData_inverse(obj):
     new_trans = trans_matrix.translation(om2.MSpace.kWorld)
     trans_node = om2.MFnTransform(default_node)
     trans_node.setTranslation(new_trans, om2.MSpace.kTransform)
+
+def matchTranformation(targetNode, followerNode, translation=True, rotation=True):
+    followerMTransform = om2.MFnTransform(getMDagPath(followerNode))
+    targetMTransform = om2.MFnTransform(getMDagPath(targetNode))
+    targetMTMatrix = om2.MTransformationMatrix(om2.MMatrix(cmds.xform(targetNode, matrix=True, ws=1, q=True)))
+    if translation:
+        targetRotatePivot = om2.MVector(targetMTransform.rotatePivot(om2.MSpace.kWorld))
+        followerMTransform.setTranslation(targetRotatePivot, om2.MSpace.kWorld)
+    if rotation:
+        # using the target matrix decomposition
+        # Worked on all cases tested
+        followerMTransform.setRotation(targetMTMatrix.rotation(True), om2.MSpace.kWorld)
+
+        # Using the MFnTransform quaternion rotation in world space
+        # Doesn't work when there is a -1 scale on the object itself
+        # Doesn't work when the object has frozen transformations and there is a -1 scale on a parent group.
+        # followerMTransform.setRotation(MFntMainNode.rotation(om2.MSpace.kWorld, asQuaternion=True),om2.MSpace.kWorld)
+
+def getMatrix(node):
+    '''
+    Gets the world matrix of an object based on name.
+    '''
+    # Selection list object and MObject for our matrix
+    selection = om2.MSelectionList()
+    matrixObject = om2.MObject()
+
+    # Adding object
+    selection.add(node)
+
+    # New api is nice since it will just return an MObject instead of taking two arguments.
+    MObjectA = selection.getDependNode(0)
+
+    # Dependency node so we can get the worldMatrix attribute
+    fnThisNode = om2.MFnDependencyNode(MObjectA)
+
+    # Get it's world matrix plug
+    worldMatrixAttr = fnThisNode.attribute("worldMatrix")
+
+    # Getting mPlug by plugging in our MObject and attribute
+    matrixPlug = om2.MPlug(MObjectA, worldMatrixAttr)
+    matrixPlug = matrixPlug.elementByLogicalIndex(0)
+
+    # Get matrix plug as MObject so we can get it's data.
+    matrixObject = matrixPlug.asMObject()
+
+    # Finally get the data
+    worldMatrixData = om2.MFnMatrixData(matrixObject)
+    worldMatrix = worldMatrixData.matrix()
+
+    return worldMatrix
+
+
+def decompMatrix(node, matrix):
+    '''
+    Decomposes a MMatrix in new api. Returns an list of translation,rotation,scale in world space.
+    '''
+    # Rotate order of object
+    rotOrder = cmds.getAttr('%s.rotateOrder' % node)
+
+    # Puts matrix into transformation matrix
+    mTransformMtx = om2.MTransformationMatrix(matrix)
+
+    # Translation Values
+    trans = mTransformMtx.translation(om2.MSpace.kWorld)
+
+    # Euler rotation value in radians
+    eulerRot = mTransformMtx.rotation()
+
+    # Reorder rotation order based on ctrl.
+    eulerRot.reorderIt(rotOrder)
+
+    # Find degrees
+    angles = [math.degrees(angle) for angle in (eulerRot.x, eulerRot.y, eulerRot.z)]
+
+    # Find world scale of our object.
+    scale = mTransformMtx.scale(om2.MSpace.kWorld)
+
+    # Return Values
+    return [trans.x, trans.y, trans.z], angles, scale
+
+
+# If we're in the main namespace run our stuffs!
+if __name__ == '__main__':
+    # Defining object name.
+    nodeName = 'yourName'
+
+    # Get Matrix
+    mat = getMatrix(nodeName)
+
+    # Decompose matrix
+    matDecomp = decompMatrix(nodeName, mat)
+
+    # Print our values
+    sys.stdout.write('\n---------------------------%s---------------------------\n' % nodeName)
+    sys.stdout.write('\nTranslation : %s' % matDecomp[0])
+    sys.stdout.write('\nRotation    : %s' % matDecomp[1])
+    sys.stdout.write('\nScale       : %s\n' % matDecomp[2])
 
 
 
